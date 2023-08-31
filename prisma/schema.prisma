@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum OAuthProvider {
+  DEFAULT
+  GOOGLE
+  GITHUB
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.VarChar(36)
+  display_name String        @unique @default(cuid()) @db.VarChar(32)
+  avatar       String        @default("") @db.VarChar(255)
+  about        String        @default("") @db.VarChar(255)
+  email        String        @unique @db.VarChar(50)
+  username     String        @unique @db.VarChar(15)
+  password     String        @default("") @db.VarChar(255)
+  role         Int           @default(0)
+  oauth        OAuthProvider @default(DEFAULT)
+  status       Boolean       @default(true)
+  created_at   DateTime      @default(now())
+  token        UserToken[]
+
+  @@map("users")
+}
+
+model UserToken {
+  id         String   @id @db.VarChar(36)
+  user_id    String   @db.VarChar(36)
+  status     Boolean  @default(true)
+  ip         String   @db.VarChar(15)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@map("user_tokens")
+}
