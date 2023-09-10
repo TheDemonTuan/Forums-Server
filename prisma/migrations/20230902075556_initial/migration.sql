@@ -1,7 +1,7 @@
 -- CreateTable
 CREATE TABLE `users` (
     `id` VARCHAR(36) NOT NULL,
-    `display_name` VARCHAR(32) NOT NULL,
+    `display_name` VARCHAR(25) NOT NULL,
     `avatar` VARCHAR(255) NOT NULL DEFAULT '',
     `about` VARCHAR(255) NOT NULL DEFAULT '',
     `email` VARCHAR(50) NOT NULL,

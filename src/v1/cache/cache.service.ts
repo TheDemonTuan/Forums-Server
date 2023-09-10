@@ -39,11 +39,11 @@ export class CacheService {
 
 	//--------------------------------------------------------------------------UserInfo And UserToken--------------------------------------------------------------------------
 
-	public setUTAUI(userInfo: User, userToken: UserToken) {
-		return Promise.all([this.setUserInfo(userInfo), this.setUserToken(userToken)]);
+	public async setUTAUI(userInfo: User, userToken: UserToken) {
+		return await Promise.all([this.setUserInfo(userInfo), this.setUserToken(userToken)]);
 	}
 
-	public delUTAUI(uiid: string, utid: string) {
-		return Promise.all([this.delUserInfo(uiid), this.delUserToken(utid)]);
+	public async delUTAUI(uiid: string, utid: string) {
+		return await Promise.all([this.delUserInfo(uiid), this.delUserToken(utid)]);
 	}
 }

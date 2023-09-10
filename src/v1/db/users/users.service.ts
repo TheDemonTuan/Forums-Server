@@ -80,7 +80,7 @@ export class UsersService {
 		}
 	}
 
-	async updateUser(params: {
+	async update(params: {
 		where: Prisma.UserWhereUniqueInput;
 		data: Prisma.UserUpdateInput;
 	}): Promise<User> {

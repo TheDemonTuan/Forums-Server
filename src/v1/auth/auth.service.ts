@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
 import * as bcrypt from "bcrypt";
 import { LoginDto } from "./dto/login.dto";
@@ -12,19 +12,20 @@ import { catchError, firstValueFrom } from "rxjs";
 import {
 	GoogleOAuthTokenResponse,
 	GoogleOAuthUserInfoResponse,
-} from "./types/google-oauth-response.type";
+} from "./interfaces/google-oauth.interface";
 import {
 	GithubOAuthTokenResponse,
 	GithubOAuthUserInfoResponse,
-} from "./types/github-oauth-response.type";
+} from "./interfaces/github-oauth.interface";
 import { randomBytes } from "crypto";
+import { AxiosError } from "axios";
 
 @Injectable()
 export class AuthService {
 	constructor(
 		private readonly usersService: UsersService,
-		private readonly userTokensService: UserTokensService,
 		private readonly cacheService: CacheService,
+		private readonly userTokensService: UserTokensService,
 		private readonly configService: ConfigService,
 		private readonly httpService: HttpService
 	) {}
@@ -32,13 +33,7 @@ export class AuthService {
 	private async createLoginSession(ip: string, userInfo: User) {
 		const userToken: UserToken = await this.userTokensService.createToken(ip, userInfo?.id);
 		await this.cacheService.setUTAUI(userInfo, userToken);
-
-		const { password, ...newUserInfo } = userInfo;
-
-		return {
-			utid: userToken?.id,
-			userInfo: newUserInfo,
-		};
+		return { ...userInfo, utid: userToken?.id };
 	}
 
 	public async login(loginDto: LoginDto, ip: string) {
@@ -90,7 +85,7 @@ export class AuthService {
 					grant_type: "authorization_code",
 				})
 				.pipe(
-					catchError((err) => {
+					catchError((err: AxiosError) => {
 						throw new BadRequestException("Invalid code");
 					})
 				)
@@ -104,7 +99,7 @@ export class AuthService {
 					},
 				})
 				.pipe(
-					catchError((err) => {
+					catchError((err: AxiosError) => {
 						throw new BadRequestException("Invalid code");
 					})
 				)
@@ -149,7 +144,7 @@ export class AuthService {
 					}
 				)
 				.pipe(
-					catchError((err) => {
+					catchError((err: AxiosError) => {
 						throw new BadRequestException("Invalid code");
 					})
 				)
@@ -163,7 +158,7 @@ export class AuthService {
 					},
 				})
 				.pipe(
-					catchError((err) => {
+					catchError((err: AxiosError) => {
 						throw new BadRequestException("Invalid code");
 					})
 				)

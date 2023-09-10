@@ -3,8 +3,6 @@ import {
 	Body,
 	Controller,
 	Delete,
-	Get,
-	Param,
 	Post,
 	Req,
 	Res,
@@ -18,13 +16,13 @@ import { RegisterDto } from "./dto/register.dto";
 import { AuthService } from "./auth.service";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ConfigService } from "@nestjs/config";
-import { AuthGuard } from "./guards/auth.guard";
 import { Ip } from "@/common/decorators/ip.decorator";
 import { CacheService } from "../cache/cache.service";
 import { OAuthDto } from "./dto/oauth.dto";
-import { LoggedInInterceptor } from "./interceptors/logged.intercaptor";
-
+import { LoggedInInterceptor } from "./interceptors/logged-in.interceptor";
+import { RecaptchaV3Guard } from "@/common/guards/recaptcha-v3.guard";
 @Controller("auth")
+@UseInterceptors(LoggedInInterceptor)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true, stopAtFirstError: true }))
 export class AuthController {
 	constructor(
@@ -33,25 +31,24 @@ export class AuthController {
 		private readonly cacheService: CacheService
 	) {}
 
+	@UseGuards(RecaptchaV3Guard)
 	@Post("login")
-	@UseInterceptors(LoggedInInterceptor)
 	async authLogin(@Body() loginDto: LoginDto, @Ip() ip: string) {
 		return await this.authService.login(loginDto, ip);
 	}
 
+	@UseGuards(RecaptchaV3Guard)
 	@Post("register")
-	@UseInterceptors(LoggedInInterceptor)
 	async authRegister(@Body() registerDto: RegisterDto, @Ip() ip: string) {
 		return await this.authService.register(registerDto, ip);
 	}
 
+	// @UseGuards(RecaptchaV3Guard)
 	@Post("oauth")
-	@UseInterceptors(LoggedInInterceptor)
 	async authOauth(@Ip() ip: string, @Body() body: OAuthDto) {
 		if (!body?.code || !body?.provider) {
-			throw new BadRequestException("Invalid body");
+			throw new BadRequestException("Invalid code or provider");
 		}
-
 		switch (body?.provider) {
 			case "google":
 				return await this.authService.googleOAuth(body?.code, ip);
@@ -60,16 +57,6 @@ export class AuthController {
 			default:
 				throw new BadRequestException("Invalid provider");
 		}
-	}
-
-	@Get("verify")
-	@UseGuards(AuthGuard)
-	async authVerify(@Req() req: FastifyRequest) {
-		const { password, ...userInfo } = req["userInfo"];
-		return {
-			utid: req["userToken"].id,
-			userInfo,
-		};
 	}
 
 	@Delete("logout")

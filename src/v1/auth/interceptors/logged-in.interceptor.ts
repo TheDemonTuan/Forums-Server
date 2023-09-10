@@ -27,6 +27,7 @@ export class LoggedInInterceptor implements NestInterceptor {
 							signed: true,
 						}
 					);
+					delete data.utid;
 				}
 				return data;
 			})

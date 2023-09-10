@@ -18,7 +18,7 @@ enum OAuthProvider {
 
 model User {
   id           String        @id @default(uuid()) @db.VarChar(36)
-  display_name String        @unique @default(cuid()) @db.VarChar(32)
+  display_name String        @unique @default(cuid()) @db.VarChar(25)
   avatar       String        @default("") @db.VarChar(255)
   about        String        @default("") @db.VarChar(255)
   email        String        @unique @db.VarChar(50)
