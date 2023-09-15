@@ -1,11 +1,4 @@
-import {
-	CanActivate,
-	ExecutionContext,
-	HttpException,
-	HttpStatus,
-	Injectable,
-	UnauthorizedException,
-} from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { FastifyRequest } from "fastify";
 import { ConfigService } from "@nestjs/config";
 import { UserTokensService } from "@/v1/db/user-tokens/user-tokens.service";
@@ -27,22 +20,15 @@ export class AuthGuard implements CanActivate {
 		private readonly cacheService: CacheService,
 		private readonly userTokensService: UserTokensService,
 		private readonly usersService: UsersService
-	) {}
+	) { }
 
 	async canActivate(context: ExecutionContext) {
 		const request = context.switchToHttp().getRequest<FastifyRequest>();
 		const signTokenCookie =
-			request.cookies?.[this.configService.get<string>("USER_TOKEN_COOKIE_NAME")];
+			request.cookies?.[this.configService.get<string>("USER_TOKEN_COOKIE_NAME")] ||
+			this.extractTokenFromHeader(request);
 
-		if (!signTokenCookie) {
-			throw new HttpException(
-				{
-					status: HttpStatus.NO_CONTENT,
-					message: "Please login to continue",
-				},
-				HttpStatus.NO_CONTENT
-			);
-		}
+		if (!signTokenCookie) throw new UnauthorizedException();
 
 		const unsignTokenCookie = request.unsignCookie(signTokenCookie || "");
 		if (!unsignTokenCookie?.valid) {
@@ -95,5 +81,10 @@ export class AuthGuard implements CanActivate {
 
 			return true;
 		}
+	}
+
+	private extractTokenFromHeader(request: FastifyRequest): string | undefined {
+		const [type, token] = request.headers?.authorization?.split(" ") ?? [];
+		return type === "Bearer" ? token : undefined;
 	}
 }

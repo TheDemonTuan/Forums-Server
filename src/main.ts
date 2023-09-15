@@ -9,7 +9,10 @@ async function bootstrap() {
 		AppModule,
 		new FastifyAdapter({
 			trustProxy: true,
-		})
+		}),
+		{
+			bodyParser: true,
+		}
 	);
 
 	await app.register(compression, { encodings: ["gzip", "deflate"] });
@@ -18,7 +21,7 @@ async function bootstrap() {
 	});
 
 	app.enableCors({
-		origin: ["http://localhost:3001"],
+		origin: [process.env.CLIENT_URL, process.env.STATIC_URL],
 		credentials: true,
 	});
 

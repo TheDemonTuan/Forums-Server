@@ -6,13 +6,18 @@ import { CacheService } from "../cache/cache.service";
 import { $Enums, User } from "@prisma/client";
 import { PrivateUserNameDto } from "./dto/private-username.dto";
 import { PrivateEmailDto } from "./dto/private-email.dto";
+import { HttpService } from "@nestjs/axios";
+import { catchError, firstValueFrom } from "rxjs";
+import { ProfileDto } from "./dto/profile.dto";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AccountService {
 	constructor(
 		private readonly usersService: UsersService,
-		private readonly cacheService: CacheService
-	) {}
+		private readonly cacheService: CacheService,
+		private readonly configService: ConfigService
+	) { }
 
 	public async password(passwordDto: PasswordDto, userInfo: User) {
 		if (passwordDto?.new_password !== passwordDto?.confirm_new_password) {
@@ -71,7 +76,7 @@ export class AccountService {
 			throw new BadRequestException("New email is already taken");
 		}
 
-		const newUserInfo = await this.usersService.update({
+		const updateUserInfo = await this.usersService.update({
 			data: {
 				email: privateEmailDto?.new_email,
 			},
@@ -80,8 +85,36 @@ export class AccountService {
 			},
 		});
 
-		await this.cacheService.setUserInfo(newUserInfo);
+		await this.cacheService.setUserInfo(updateUserInfo);
 
-		return newUserInfo;
+		return updateUserInfo;
+	}
+
+	public async public(profileDto: ProfileDto, userInfo: User) {
+
+		if (await this.usersService.findUnique({ display_name: profileDto?.display_name }) && userInfo?.display_name !== profileDto?.display_name) {
+			throw new BadRequestException("Display name is already taken");
+		}
+
+		let avatar = null;
+		if (profileDto?.avatar) {
+			avatar = this.configService.get<string>('STATIC_URL').concat(decodeURI(profileDto?.avatar));
+		} else {
+			avatar = userInfo?.avatar;
+		}
+
+		const updateUserInfo = await this.usersService.update({
+			data: {
+				avatar,
+				display_name: profileDto?.display_name,
+				about: profileDto?.about,
+			},
+			where: {
+				id: userInfo?.id,
+			},
+		});
+
+		await this.cacheService.setUserInfo(updateUserInfo);
+		return updateUserInfo;
 	}
 }
