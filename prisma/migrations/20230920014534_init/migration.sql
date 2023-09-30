@@ -22,11 +22,11 @@ CREATE TABLE `users` (
 CREATE TABLE `user_tokens` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
-    `status` BOOLEAN NOT NULL DEFAULT true,
     `ip` VARCHAR(15) NOT NULL,
+    `status` BOOLEAN NOT NULL DEFAULT true,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    INDEX `user_tokens_user_id_idx`(`user_id`),
+    INDEX `user_tokens_id_user_id_ip_idx`(`id`, `user_id`, `ip`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

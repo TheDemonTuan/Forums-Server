@@ -1,44 +1,42 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { RegisterDto } from "./dto/register.dto";
 import * as bcrypt from "bcrypt";
 import { LoginDto } from "./dto/login.dto";
-import { User, UserToken } from "@prisma/client";
-import { UserTokensService } from "../db/user-tokens/user-tokens.service";
-import { UsersService } from "../db/users/users.service";
+import { User } from "@prisma/client";
+import { UserTokenService } from "../db/user-token/user-token.service";
+import { UserService } from "../db/user/user.service";
 import { CacheService } from "../cache/cache.service";
 import { HttpService } from "@nestjs/axios";
 import { ConfigService } from "@nestjs/config";
 import { catchError, firstValueFrom } from "rxjs";
-import {
-	GoogleOAuthTokenResponse,
-	GoogleOAuthUserInfoResponse,
-} from "./interfaces/google-oauth.interface";
-import {
-	GithubOAuthTokenResponse,
-	GithubOAuthUserInfoResponse,
-} from "./interfaces/github-oauth.interface";
+import { GoogleOAuthTokenResponse, GoogleOAuthUserInfoResponse } from "./interfaces/google-oauth.interface";
+import { GithubOAuthTokenResponse, GithubOAuthUserInfoResponse } from "./interfaces/github-oauth.interface";
 import { randomBytes } from "crypto";
 import { AxiosError } from "axios";
 
 @Injectable()
 export class AuthService {
 	constructor(
-		private readonly usersService: UsersService,
+		private readonly usersService: UserService,
 		private readonly cacheService: CacheService,
-		private readonly userTokensService: UserTokensService,
+		private readonly userTokensService: UserTokenService,
 		private readonly configService: ConfigService,
 		private readonly httpService: HttpService
 	) {}
 
-	private async createLoginSession(ip: string, userInfo: User) {
-		const userToken: UserToken = await this.userTokensService.createToken(ip, userInfo?.id);
+	private async createLoginSession(userInfo: User, ip: string) {
+		if (!ip || !userInfo) throw new BadRequestException("Invalid request");
+
+		const userToken = await this.userTokensService.createToken(ip, userInfo?.id);
 		await this.cacheService.setUTAUI(userInfo, userToken);
 		return { ...userInfo, utid: userToken?.id };
 	}
 
 	public async login(loginDto: LoginDto, ip: string) {
 		const userInfo = await this.usersService.findUnique({
-			username: loginDto?.username,
+			where: {
+				username: loginDto?.username,
+			},
 		});
 
 		if (!userInfo || userInfo?.oauth !== "DEFAULT") {
@@ -51,7 +49,7 @@ export class AuthService {
 			throw new BadRequestException("Invalid username or password");
 		}
 
-		return await this.createLoginSession(ip, userInfo);
+		return await this.createLoginSession(userInfo, ip);
 	}
 
 	public async register(registerDto: RegisterDto, ip: string) {
@@ -70,7 +68,7 @@ export class AuthService {
 			password: await bcrypt.hash(registerDto.password, 11),
 		});
 
-		return await this.createLoginSession(ip, userInfo);
+		return await this.createLoginSession(userInfo, ip);
 	}
 
 	public async googleOAuth(code: string, ip: string) {
@@ -110,7 +108,9 @@ export class AuthService {
 
 		//! Logic
 		let userInfo = await this.usersService.findUnique({
-			email: googleInfo?.email,
+			where: {
+				email: googleInfo?.email,
+			},
 		});
 
 		if (userInfo) {
@@ -124,7 +124,7 @@ export class AuthService {
 			});
 		}
 
-		return await this.createLoginSession(ip, userInfo);
+		return await this.createLoginSession(userInfo, ip);
 	}
 
 	public async githubOAuth(code: string, ip: string) {
@@ -165,7 +165,9 @@ export class AuthService {
 		);
 
 		let userInfo = await this.usersService.findUnique({
-			email: githubInfo?.email,
+			where: {
+				email: githubInfo?.email,
+			},
 		});
 
 		if (userInfo) {
@@ -179,6 +181,6 @@ export class AuthService {
 			});
 		}
 
-		return await this.createLoginSession(ip, userInfo);
+		return await this.createLoginSession(userInfo, ip);
 	}
 }

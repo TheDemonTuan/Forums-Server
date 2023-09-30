@@ -3,17 +3,13 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { Prisma, User } from "@prisma/client";
 
 @Injectable()
-export class UsersService {
-	constructor(private prisma: PrismaService) {}
+export class UserService {
+	constructor(private prismaService: PrismaService) {}
 
-	async findUnique(
-		userWhereUniqueInput: Prisma.UserWhereUniqueInput,
-		userSelect?: Prisma.UserSelect
-	): Promise<User | null> {
+	public async findUnique(params: { where: Prisma.UserWhereUniqueInput; include?: Prisma.UserInclude; select?: Prisma.UserSelect }) {
 		try {
-			return await this.prisma.user.findUnique({
-				where: userWhereUniqueInput,
-				select: userSelect,
+			return await this.prismaService.user.findUnique({
+				...params,
 			});
 		} catch (error) {
 			throw new InternalServerErrorException("Error fetching user", {
@@ -29,17 +25,12 @@ export class UsersService {
 		orderBy?: Prisma.UserOrderByWithRelationInput;
 		include?: Prisma.UserInclude;
 	}) {
-		const { skip, cursor, where, orderBy, include } = params;
 		try {
-			return await this.prisma.user.findFirst({
-				skip,
-				cursor,
-				where,
-				orderBy,
-				include,
+			return await this.prismaService.user.findFirst({
+				...params,
 			});
 		} catch (error) {
-			throw new InternalServerErrorException("Error fetching users", {
+			throw new InternalServerErrorException("Error fetching user", {
 				cause: error,
 			});
 		}
@@ -54,12 +45,8 @@ export class UsersService {
 	}): Promise<User[]> {
 		const { skip, take, cursor, where, orderBy } = params;
 		try {
-			return await this.prisma.user.findMany({
-				skip,
-				take,
-				cursor,
-				where,
-				orderBy,
+			return await this.prismaService.user.findMany({
+				...params,
 			});
 		} catch (error) {
 			throw new InternalServerErrorException("Error fetching users", {
@@ -70,7 +57,7 @@ export class UsersService {
 
 	async create(data: Prisma.UserCreateInput) {
 		try {
-			return await this.prisma.user.create({
+			return await this.prismaService.user.create({
 				data,
 			});
 		} catch (error) {
@@ -80,15 +67,10 @@ export class UsersService {
 		}
 	}
 
-	async update(params: {
-		where: Prisma.UserWhereUniqueInput;
-		data: Prisma.UserUpdateInput;
-	}): Promise<User> {
-		const { where, data } = params;
+	async update(params: { where: Prisma.UserWhereUniqueInput; data: Prisma.UserUpdateInput }): Promise<User> {
 		try {
-			return await this.prisma.user.update({
-				data,
-				where,
+			return await this.prismaService.user.update({
+				...params,
 			});
 		} catch (error) {
 			throw new InternalServerErrorException("Error updating user", {
@@ -97,9 +79,9 @@ export class UsersService {
 		}
 	}
 
-	async deleteUser(where: Prisma.UserWhereUniqueInput) {
+	async delete(where: Prisma.UserWhereUniqueInput) {
 		try {
-			return await this.prisma.user.delete({
+			return await this.prismaService.user.delete({
 				where,
 			});
 		} catch (error) {

@@ -1,20 +1,19 @@
-import { FastifyRequest } from "fastify";
 import { Injectable, CanActivate, ExecutionContext, BadRequestException } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { catchError, firstValueFrom } from "rxjs";
 import { RecaptchaV3Response } from "../interfaces/recaptcha.interface";
 import { AxiosError } from "axios";
+import { Request } from "express";
 
 @Injectable()
 export class RecaptchaV3Guard implements CanActivate {
 	constructor(private readonly httpService: HttpService) {}
 
 	async canActivate(context: ExecutionContext) {
-		const request = context.switchToHttp().getRequest<FastifyRequest>();
+		const request = context.switchToHttp().getRequest<Request>();
 
-		const body: any = request.body;
+		const recaptcha = request?.headers?.["tdt_recaptcha_v3"];
 
-		const recaptcha: string = body?.recaptcha;
 		if (!recaptcha) throw new BadRequestException("Invalid recaptcha");
 
 		const { data } = await firstValueFrom(
@@ -38,8 +37,7 @@ export class RecaptchaV3Guard implements CanActivate {
 				)
 		);
 
-		if (!data?.success || data?.score < 0.5 || data?.action !== "tdtAction")
-			throw new BadRequestException("Invalid recaptcha");
+		if (!data?.success || data?.score < 0.5 || data?.action !== "tdtAction") throw new BadRequestException("Invalid recaptcha");
 
 		return true;
 	}

@@ -36,12 +36,12 @@ model User {
 model UserToken {
   id         String   @id @db.VarChar(36)
   user_id    String   @db.VarChar(36)
-  status     Boolean  @default(true)
   ip         String   @db.VarChar(15)
+  status     Boolean  @default(true)
   created_at DateTime @default(now())
 
   user User @relation(fields: [user_id], references: [id])
 
-  @@index([user_id])
+  @@index([id, user_id, ip])
   @@map("user_tokens")
 }

@@ -1,8 +1,14 @@
-import { FastifyRequest } from "fastify";
-
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
+import { UserToken as UserTokenPrisma } from "@prisma/client";
+import { Request } from "express";
 
-export const UserTokens = createParamDecorator((data: string, ctx: ExecutionContext) => {
-	const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+declare module "express" {
+	interface Request {
+		userToken: UserTokenPrisma;
+	}
+}
+
+export const UserToken = createParamDecorator((data: string, ctx: ExecutionContext) => {
+	const request = ctx.switchToHttp().getRequest<Request>();
 	return request?.userToken || null;
 });

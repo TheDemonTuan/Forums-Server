@@ -1,8 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { V1Module } from "./v1/v1.module";
-import { CacheInterceptor, CacheModule } from "@nestjs/cache-manager";
-import { APP_INTERCEPTOR } from "@nestjs/core";
+import { CacheModule } from "@nestjs/cache-manager";
 
 @Module({
 	imports: [
@@ -13,12 +12,6 @@ import { APP_INTERCEPTOR } from "@nestjs/core";
 			isGlobal: true,
 		}),
 		V1Module,
-	],
-	providers: [
-		{
-			provide: APP_INTERCEPTOR,
-			useClass: CacheInterceptor,
-		},
 	],
 })
 export class AppModule {}

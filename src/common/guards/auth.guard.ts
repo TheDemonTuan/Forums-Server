@@ -1,90 +1,78 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
-import { FastifyRequest } from "fastify";
 import { ConfigService } from "@nestjs/config";
-import { UserTokensService } from "@/v1/db/user-tokens/user-tokens.service";
-import { UsersService } from "@/v1/db/users/users.service";
+import { UserTokenService } from "@/v1/db/user-token/user-token.service";
+import { UserService } from "@/v1/db/user/user.service";
 import { CacheService } from "@/v1/cache/cache.service";
-import { User, UserToken } from "@prisma/client";
-
-declare module "fastify" {
-	interface FastifyRequest {
-		userInfo: User;
-		userToken: UserToken;
-	}
-}
+import { UserTokenCache } from "@/v1/cache/interfaces/user-token-cache.interface";
+import { Request } from "express";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
 	constructor(
 		private readonly configService: ConfigService,
 		private readonly cacheService: CacheService,
-		private readonly userTokensService: UserTokensService,
-		private readonly usersService: UsersService
-	) { }
+		private readonly userTokensService: UserTokenService,
+		private readonly usersService: UserService
+	) {}
 
 	async canActivate(context: ExecutionContext) {
-		const request = context.switchToHttp().getRequest<FastifyRequest>();
-		const signTokenCookie =
-			request.cookies?.[this.configService.get<string>("USER_TOKEN_COOKIE_NAME")] ||
-			this.extractTokenFromHeader(request);
+		const request = context.switchToHttp().getRequest<Request>();
+		const unsignTokenCookie = (await request.signedCookies?.[this.configService.get<string>("USER_TOKEN_COOKIE_NAME")]) as string;
 
-		if (!signTokenCookie) throw new UnauthorizedException();
+		if (!unsignTokenCookie) throw new UnauthorizedException();
 
-		const unsignTokenCookie = request.unsignCookie(signTokenCookie || "");
-		if (!unsignTokenCookie?.valid) {
-			throw new UnauthorizedException();
-		} else {
-			const userTokenId = unsignTokenCookie?.value;
-			let userToken = await this.cacheService.getUserToken(userTokenId);
+		const [userInfoID, userTokenID] = unsignTokenCookie?.split(".");
+
+		if (!userInfoID || !userTokenID) throw new UnauthorizedException();
+
+		let userToken = await this.cacheService.getUserToken(userInfoID, userTokenID);
+
+		if (!userToken) {
+			userToken = (await this.userTokensService.findUnique({
+				where: {
+					id: userTokenID,
+					user_id: userInfoID,
+				},
+			})) as UserTokenCache;
+
 			if (!userToken) {
-				userToken = await this.userTokensService.findFirst({
-					where: {
-						id: userTokenId,
-					},
-				});
-
-				if (!userToken) {
-					throw new UnauthorizedException();
-				}
-
-				await this.cacheService.setUserToken(userToken);
-			}
-
-			if (!userToken?.status || userToken?.ip !== request?.ips[0]) {
-				await this.cacheService.delUserToken(userTokenId);
 				throw new UnauthorizedException();
 			}
 
-			let userInfo = await this.cacheService.getUserInfo(userToken?.user_id);
+			await this.cacheService.setUserToken(userInfoID, userToken);
+		}
+
+		const currentIp = request?.ips?.[0] || request?.ip;
+
+		if (!userToken?.status || userToken?.ip !== currentIp) {
+			await this.cacheService.delUserToken(userInfoID, userTokenID);
+			throw new UnauthorizedException("This token has been disabled");
+		}
+
+		let userInfo = await this.cacheService.getUserInfo(userToken?.user_id);
+
+		if (!userInfo) {
+			userInfo = await this.usersService.findFirst({
+				where: {
+					id: userToken?.user_id,
+				},
+			});
 
 			if (!userInfo) {
-				userInfo = await this.usersService.findFirst({
-					where: {
-						id: userToken?.user_id,
-					},
-				});
-
-				if (!userInfo) {
-					throw new UnauthorizedException();
-				}
-
-				await this.cacheService.setUserInfo(userInfo);
+				throw new UnauthorizedException();
 			}
 
-			if (!userInfo?.status) {
-				await this.cacheService.delUserInfo(userTokenId);
-				throw new UnauthorizedException("This account has been disabled");
-			}
-
-			request["userInfo"] = { ...userInfo };
-			request["userToken"] = { ...userToken };
-
-			return true;
+			await this.cacheService.setUserInfo(userInfo);
 		}
-	}
 
-	private extractTokenFromHeader(request: FastifyRequest): string | undefined {
-		const [type, token] = request.headers?.authorization?.split(" ") ?? [];
-		return type === "Bearer" ? token : undefined;
+		if (!userInfo?.status) {
+			await this.cacheService.delUserInfo(userTokenID);
+			throw new UnauthorizedException("This account has been disabled");
+		}
+
+		request["userInfo"] = { ...userInfo };
+		request["userToken"] = { ...userToken };
+
+		return true;
 	}
 }

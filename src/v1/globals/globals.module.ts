@@ -1,15 +1,12 @@
+import { PrismaService } from "@/prisma/prisma.service";
 import { Global, Module } from "@nestjs/common";
-import { CacheModule } from "../cache/cache.module";
-import { CacheService } from "../cache/cache.service";
-import { UsersModule } from "../db/users/users.module";
-import { UserTokensModule } from "../db/user-tokens/user-tokens.module";
-import { UserTokensService } from "../db/user-tokens/user-tokens.service";
-import { UsersService } from "../db/users/users.service";
+import { CacheService } from "@/v1/cache/cache.service";
+import { UserTokenService } from "../db/user-token/user-token.service";
+import { UserService } from "../db/user/user.service";
 
 @Global()
 @Module({
-	imports: [CacheModule, UsersModule, UserTokensModule],
-	providers: [CacheService, UsersService, UserTokensService],
-	exports: [CacheService, UsersService, UserTokensService],
+	providers: [PrismaService, CacheService, UserService, UserTokenService],
+	exports: [PrismaService, CacheService, UserService, UserTokenService],
 })
 export class GlobalsModule {}
