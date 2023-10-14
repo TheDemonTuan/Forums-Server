@@ -17,18 +17,19 @@ enum OAuthProvider {
 }
 
 model User {
-  id           String        @id @default(uuid()) @db.VarChar(36)
-  display_name String        @unique @default(cuid()) @db.VarChar(25)
-  avatar       String        @default("") @db.VarChar(255)
-  about        String        @default("") @db.VarChar(255)
-  email        String        @unique @db.VarChar(50)
-  username     String        @unique @db.VarChar(15)
-  password     String        @default("") @db.VarChar(255)
-  role         Int           @default(0)
-  oauth        OAuthProvider @default(DEFAULT)
-  status       Boolean       @default(true)
-  created_at   DateTime      @default(now())
+  id           String            @id @default(uuid()) @db.VarChar(36)
+  display_name String            @unique @default(cuid()) @db.VarChar(25)
+  avatar       String            @default("") @db.VarChar(255)
+  about        String            @default("") @db.VarChar(255)
+  email        String            @unique @db.VarChar(50)
+  username     String            @unique @db.VarChar(15)
+  password     String            @default("") @db.VarChar(255)
+  role         Int               @default(0)
+  oauth        OAuthProvider     @default(DEFAULT)
+  status       Boolean           @default(true)
+  created_at   DateTime          @default(now())
   token        UserToken[]
+  security_log UserSecurityLog[]
 
   @@map("users")
 }
@@ -42,6 +43,24 @@ model UserToken {
 
   user User @relation(fields: [user_id], references: [id])
 
-  @@index([id, user_id, ip])
+  @@index([user_id, ip])
   @@map("user_tokens")
+}
+
+model UserSecurityLog {
+  id          Int      @id @default(autoincrement())
+  user_id     String   @db.VarChar(36)
+  browser     String   @db.VarChar(255)
+  device      String   @db.VarChar(255)
+  device_type String   @db.VarChar(255)
+  engine      String   @db.VarChar(255)
+  os          String   @db.VarChar(255)
+  cpu         String   @db.VarChar(255)
+  ip          String   @db.VarChar(15)
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, ip])
+  @@map("user_security_logs")
 }

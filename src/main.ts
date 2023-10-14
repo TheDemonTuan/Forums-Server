@@ -8,7 +8,7 @@ import { join } from "path";
 async function bootstrap() {
 	const app = await NestFactory.create<NestExpressApplication>(AppModule, {
 		cors: {
-			origin: [process.env.CLIENT_URL, process.env.STATIC_URL],
+			origin: [process.env.CLIENT_URL],
 			credentials: true,
 		},
 	});

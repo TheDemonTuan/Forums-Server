@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { UserTokenService } from "@/v1/db/user-token/user-token.service";
-import { UserService } from "@/v1/db/user/user.service";
+import { UserTokenService } from "@/common/db/user-token/user-token.service";
+import { UserService } from "@/common/db/user/user.service";
 import { CacheService } from "@/v1/cache/cache.service";
 import { UserTokenCache } from "@/v1/cache/interfaces/user-token-cache.interface";
 import { Request } from "express";

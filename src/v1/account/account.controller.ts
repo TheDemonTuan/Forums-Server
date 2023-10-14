@@ -96,4 +96,9 @@ export class AccountController {
 	async sessionRevokeAll(@UserInfo() userInfo: User, @UserToken() userToken: UserTokenPrisma) {
 		return await this.accountService.sessionRevokeAll(userInfo?.id, userToken?.id);
 	}
+
+	@Get("security-log")
+	async securityLog(@UserInfo() userInfo: User) {
+		return await this.accountService.securityLog(userInfo?.id);
+	}
 }

@@ -15,6 +15,9 @@ export class SharpPipe implements PipeTransform<Express.Multer.File, Promise<Exp
 	async transform(file: Express.Multer.File): Promise<SharpFile> {
 		if (!file) return null;
 
+		console.log();
+		
+
 		const filename = Date.now() + "-" + file?.filename + ".webp";
 
 		await sharp(file?.path)
