@@ -1,9 +1,5 @@
 import { PrismaService } from "@/common/prisma/prisma.service";
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-} from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { randomBytes } from "crypto";
 import { Request } from "express";
 import { UAParser } from "ua-parser-js";
@@ -20,9 +16,28 @@ export class CustomDBService {
       if (!ip || !ua || !currentUIID) throw new BadRequestException("Invalid request");
 
       const uaParser = new UAParser(ua);
-      const isDesktop =
-        uaParser?.getDevice()?.type === undefined ||
-        !["wearable", "mobile"].includes(uaParser?.getDevice()?.type);
+      const browser =
+        uaParser?.getBrowser()?.name === undefined && uaParser?.getBrowser()?.version === undefined
+          ? "Unknown"
+          : uaParser?.getBrowser()?.name.concat(" ", uaParser?.getBrowser()?.version);
+      const engine =
+        uaParser?.getEngine()?.name === undefined && uaParser?.getEngine()?.version === undefined
+          ? "Unknown"
+          : uaParser?.getEngine()?.name?.concat(" ", uaParser?.getEngine()?.version);
+      const device =
+        uaParser?.getDevice()?.model === undefined && uaParser?.getDevice()?.vendor === undefined
+          ? "Unknown"
+          : uaParser?.getDevice()?.model.concat(" ", uaParser?.getDevice()?.vendor);
+      const device_type =
+        uaParser?.getDevice()?.type === undefined ? "Unknown" : uaParser?.getDevice()?.type;
+      const os =
+        uaParser?.getOS()?.name === undefined && uaParser?.getOS()?.version === undefined
+          ? "Unknown"
+          : uaParser?.getOS()?.name.concat(" ", uaParser?.getOS()?.version);
+      const cpu =
+        uaParser?.getCPU()?.architecture === undefined
+          ? "Unknown"
+          : uaParser?.getCPU()?.architecture;
 
       return await this.prismaService.$transaction(async (tx) => {
         let userToken = await tx.userToken.findFirst({
@@ -47,21 +62,12 @@ export class CustomDBService {
         await tx.userSecurityLog.create({
           data: {
             ip,
-            browser:
-              uaParser?.getBrowser()?.name +
-              " " +
-              uaParser?.getBrowser()?.version,
-            engine:
-              uaParser?.getEngine()?.name +
-              " " +
-              uaParser?.getEngine()?.version,
-            device:
-              uaParser?.getDevice()?.model +
-              " " +
-              uaParser?.getDevice()?.vendor,
-            device_type: isDesktop ? "Desktop" : uaParser?.getDevice()?.type,
-            os: uaParser?.getOS()?.name + " " + uaParser?.getOS()?.version,
-            cpu: uaParser?.getCPU()?.architecture ?? "Unknown",
+            browser,
+            engine,
+            device,
+            device_type,
+            os,
+            cpu,
             user: {
               connect: {
                 id: currentUIID,
