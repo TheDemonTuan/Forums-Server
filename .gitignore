@@ -1,9 +1,8 @@
 # compiled output
 /dist
 /node_modules
-
-db_data
 .env
+pnpm-lock.yaml
 
 # Logs
 logs

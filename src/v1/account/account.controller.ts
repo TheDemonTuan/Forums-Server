@@ -12,7 +12,7 @@ import {
 	UsePipes,
 	ValidationPipe,
 } from "@nestjs/common";
-import { PasswordDto } from "./dto/password.dto";
+import { PrivatePasswordDto } from "./dto/private-password.dto";
 import { AccountService } from "./account.service";
 import { AuthGuard } from "@/common/guards/auth.guard";
 import { User, UserToken as UserTokenPrisma } from "@prisma/client";
@@ -33,11 +33,11 @@ import { SharpFile, SharpPipe } from "@/common/pipes/sharp.pipe";
 export class AccountController {
 	constructor(private readonly accountService: AccountService) {}
 
-	@Put("password")
+	@Put("private/password")
 	@Providers(Provider.Default)
 	@UseGuards(ProvidersGuard)
-	async password(@Body() passwordDto: PasswordDto, @UserInfo() userInfo: User, @UserToken() userToken: UserTokenPrisma) {
-		return await this.accountService.password(passwordDto, userInfo, userToken?.id);
+	async password(@Body() passwordDto: PrivatePasswordDto, @UserInfo() userInfo: User, @UserToken() userToken: UserTokenPrisma) {
+		return await this.accountService.privatePassword(passwordDto, userInfo, userToken?.id);
 	}
 
 	@Put("private/username")
@@ -52,7 +52,7 @@ export class AccountController {
 		return await this.accountService.privateEmail(privateEmailDto, userInfo);
 	}
 
-	@Put("public")
+	@Put("profile")
 	@UseInterceptors(
 		LocalFilesInterceptor({
 			fieldName: "avatar",
@@ -68,8 +68,8 @@ export class AccountController {
 			},
 		})
 	)
-	async public(@Body() profileDto: ProfileDto, @UploadedFile(SharpPipe) file: SharpFile, @UserInfo() userInfo: User) {
-		return await this.accountService.public(profileDto, file, userInfo);
+	async profile(@Body() profileDto: ProfileDto, @UploadedFile(SharpPipe) file: SharpFile, @UserInfo() userInfo: User) {
+		return await this.accountService.profile(profileDto, file, userInfo);
 	}
 
 	@Get("sessions")

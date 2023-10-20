@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { UserService } from "../../common/db/user/user.service";
-import { PasswordDto } from "./dto/password.dto";
+import { PrivatePasswordDto } from "./dto/private-password.dto";
 import * as bcrypt from "bcrypt";
 import { CacheService } from "../cache/cache.service";
 import { $Enums, Prisma, User } from "@prisma/client";
@@ -33,20 +29,12 @@ export class AccountService {
     private readonly userSecurityLogService: UserSecurityLogService
   ) {}
 
-  public async password(
-    passwordDto: PasswordDto,
-    userInfo: User,
-    currentUTID: string
-  ) {
+  public async privatePassword(passwordDto: PrivatePasswordDto, userInfo: User, currentUTID: string) {
     if (passwordDto?.new_password !== passwordDto?.confirm_new_password) {
-      throw new BadRequestException(
-        "New password and confirm new password do not match"
-      );
+      throw new BadRequestException("New password and confirm new password do not match");
     } else if (!userInfo) {
       throw new UnauthorizedException("Invalid user token");
-    } else if (
-      !bcrypt.compareSync(passwordDto?.old_password, userInfo?.password)
-    )
+    } else if (!bcrypt.compareSync(passwordDto?.old_password, userInfo?.password))
       throw new BadRequestException("Old password is incorrect");
 
     const newUserInfo = await this.usersService.update({
@@ -66,20 +54,12 @@ export class AccountService {
     return newUserInfo;
   }
 
-  public async privateUserName(
-    privateUserNameDto: PrivateUserNameDto,
-    userInfo: User
-  ) {
+  public async privateUserName(privateUserNameDto: PrivateUserNameDto, userInfo: User) {
     if (privateUserNameDto?.new_username === userInfo?.username) {
-      throw new BadRequestException(
-        "New username cannot be the same as your current username"
-      );
+      throw new BadRequestException("New username cannot be the same as your current username");
     } else if (
       userInfo?.oauth === $Enums.OAuthProvider.DEFAULT &&
-      !bcrypt.compareSync(
-        privateUserNameDto?.confirm_password,
-        userInfo?.password
-      )
+      !bcrypt.compareSync(privateUserNameDto?.confirm_password, userInfo?.password)
     ) {
       throw new BadRequestException("Confirm password is incorrect");
     } else if (
@@ -106,12 +86,8 @@ export class AccountService {
 
   public async privateEmail(privateEmailDto: PrivateEmailDto, userInfo: User) {
     if (privateEmailDto?.new_email === userInfo?.email) {
-      throw new BadRequestException(
-        "New email cannot be the same as your current email"
-      );
-    } else if (
-      !bcrypt.compareSync(privateEmailDto?.confirm_password, userInfo?.password)
-    ) {
+      throw new BadRequestException("New email cannot be the same as your current email");
+    } else if (!bcrypt.compareSync(privateEmailDto?.confirm_password, userInfo?.password)) {
       throw new BadRequestException("Confirm password is incorrect");
     } else if (
       await this.usersService.findUnique({
@@ -135,7 +111,7 @@ export class AccountService {
     return updateUserInfo;
   }
 
-  public async public(profileDto: ProfileDto, file: SharpFile, userInfo: User) {
+  public async profile(profileDto: ProfileDto, file: SharpFile, userInfo: User) {
     if (
       userInfo?.display_name === profileDto?.display_name &&
       userInfo?.about === profileDto?.about &&
@@ -201,8 +177,7 @@ export class AccountService {
       ...userTokens.filter((userToken) => userToken?.id === currentUTID),
       ...userTokens.filter(
         (userToken) =>
-          (userToken?.is_active && userToken?.id !== currentUTID) ||
-          !userToken?.is_active
+          (userToken?.is_active && userToken?.id !== currentUTID) || !userToken?.is_active
       ),
     ] as Session[];
   }
@@ -211,10 +186,7 @@ export class AccountService {
     if (!utid) throw new BadRequestException("Invalid session id");
 
     let is_active = false;
-    const userTokenCache = await this.cacheService.getUserToken(
-      currentUIID,
-      utid
-    );
+    const userTokenCache = await this.cacheService.getUserToken(currentUIID, utid);
 
     if (userTokenCache) {
       is_active = true;
@@ -264,15 +236,10 @@ export class AccountService {
     return data;
   }
 
-  public async sessionRevoke(
-    currentUIID: string,
-    currentUTID: string,
-    utid: string
-  ) {
+  public async sessionRevoke(currentUIID: string, currentUTID: string, utid: string) {
     if (!utid) throw new BadRequestException("Invalid session id");
 
-    if (currentUTID === utid)
-      throw new BadRequestException("Cannot revoke current session");
+    if (currentUTID === utid) throw new BadRequestException("Cannot revoke current session");
 
     try {
       await this.userTokensService.delete({

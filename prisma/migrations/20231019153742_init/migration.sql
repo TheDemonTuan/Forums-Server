@@ -26,9 +26,29 @@ CREATE TABLE `user_tokens` (
     `status` BOOLEAN NOT NULL DEFAULT true,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    INDEX `user_tokens_id_user_id_ip_idx`(`id`, `user_id`, `ip`),
+    INDEX `user_tokens_user_id_ip_idx`(`user_id`, `ip`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `user_security_logs` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `user_id` VARCHAR(36) NOT NULL,
+    `browser` VARCHAR(255) NOT NULL,
+    `device` VARCHAR(255) NOT NULL,
+    `device_type` VARCHAR(255) NOT NULL,
+    `engine` VARCHAR(255) NOT NULL,
+    `os` VARCHAR(255) NOT NULL,
+    `cpu` VARCHAR(255) NOT NULL,
+    `ip` VARCHAR(15) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `user_security_logs_user_id_ip_idx`(`user_id`, `ip`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
 ALTER TABLE `user_tokens` ADD CONSTRAINT `user_tokens_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `user_security_logs` ADD CONSTRAINT `user_security_logs_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -40,24 +40,25 @@ export class CustomDBService {
           : uaParser?.getCPU()?.architecture;
 
       return await this.prismaService.$transaction(async (tx) => {
-        let userToken = await tx.userToken.findFirst({
-          where: { ip, user_id: currentUIID },
-          orderBy: { created_at: "desc" },
-        });
-
-        if (!userToken) {
-          userToken = await tx.userToken.create({
-            data: {
-              id: randomBytes(27).toString("base64url"),
-              ip,
-              user: {
-                connect: {
-                  id: currentUIID,
-                },
+        // let userToken = await tx.userToken.findFirst({
+        //   where: { ip, user_id: currentUIID },
+        //   orderBy: { created_at: "desc" },
+        // });
+        
+        // if (!userToken) {
+        let userToken = await tx.userToken.create({
+          data: {
+            id: randomBytes(16).toString("hex"),
+            ip,
+            user: {
+              connect: {
+                id: currentUIID,
               },
             },
-          });
-        }
+          },
+        });
+        // }
+        //
 
         await tx.userSecurityLog.create({
           data: {
@@ -78,6 +79,8 @@ export class CustomDBService {
         return userToken;
       });
     } catch (error) {
+      console.log(error);
+      
       throw new InternalServerErrorException("Error creating login session", {
         cause: error,
       });
