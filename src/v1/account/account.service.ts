@@ -13,10 +13,9 @@ import { Session } from "./interfaces/sessions.interface";
 import { HttpService } from "@nestjs/axios";
 import { AxiosError } from "axios";
 import { catchError, firstValueFrom } from "rxjs";
-import * as fs from "fs";
 import { SharpFile } from "@/common/pipes/sharp.pipe";
-import { join } from "path";
 import { UserSecurityLogService } from "@/common/db/user-security-log/user-security-log.service";
+import * as _ from "lodash";
 
 @Injectable()
 export class AccountService {
@@ -29,7 +28,11 @@ export class AccountService {
     private readonly userSecurityLogService: UserSecurityLogService
   ) {}
 
-  public async privatePassword(passwordDto: PrivatePasswordDto, userInfo: User, currentUTID: string) {
+  public async privatePassword(
+    passwordDto: PrivatePasswordDto,
+    userInfo: User,
+    currentUTID: string
+  ) {
     if (passwordDto?.new_password !== passwordDto?.confirm_new_password) {
       throw new BadRequestException("New password and confirm new password do not match");
     } else if (!userInfo) {
@@ -141,18 +144,9 @@ export class AccountService {
         },
       });
 
-      const oldAvatarPath = join(
-        this.configService.get<string>("UPLOADED_FILES_DESTINATION"),
-        userInfo?.avatar
-      );
-
-      if (userInfo?.avatar && file?.staticPath && fs.existsSync(oldAvatarPath))
-        fs.unlinkSync(oldAvatarPath);
-
       await this.cacheService.setUserInfo(updateUserInfo);
       return updateUserInfo;
     } catch (err) {
-      if (fs.existsSync(file?.hostPath)) fs.unlinkSync(file?.hostPath);
       throw err;
     }
   }
@@ -257,6 +251,29 @@ export class AccountService {
     this.cacheService.delUserToken(currentUIID, utid);
 
     return { message: "Session revoked" };
+  }
+
+  public async sessionRevokeSelected(currentUIID: string, currentUTID: string, ids: string[]) {
+    if (!_.isArray(ids) || _.isEmpty(ids)) throw new BadRequestException("Invalid session ids");
+
+    if (_.includes(ids, currentUTID))
+      throw new BadRequestException("In selected sessions, cannot revoke current session");
+
+    await this.userTokensService.deleteMany({
+      id: {
+        in: ids,
+      },
+      user_id: currentUIID,
+      NOT: {
+        id: currentUTID,
+      },
+    });
+
+    ids.forEach(async (id) => {
+      this.cacheService.delUserToken(currentUIID, id);
+    });
+
+    return { message: "Selected sessions revoked" };
   }
 
   public async sessionRevokeAll(currentUIID: string, currentUTID: string) {
