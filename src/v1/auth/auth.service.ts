@@ -136,12 +136,12 @@ export class AuthService {
 
     if (userInfo) {
       if (userInfo.oauth !== $Enums.OAuthProvider.GOOGLE)
-        throw new BadRequestException("This account already exists");
+        throw new BadRequestException("This email already exists");
     } else {
       userInfo = await this.usersService.create({
         email: googleInfo?.email,
         username: generateRandomAlphanumeric(15),
-        oauth: "GOOGLE",
+        oauth: $Enums?.OAuthProvider?.GOOGLE,
         avatar: googleInfo?.picture,
       });
     }
@@ -196,12 +196,12 @@ export class AuthService {
 
     if (userInfo) {
       if (userInfo.oauth !== $Enums.OAuthProvider.GITHUB)
-        throw new BadRequestException("This account already exists");
+        throw new BadRequestException("This email already exists");
     } else {
       userInfo = await this.usersService.create({
         email: githubInfo?.email,
         username: generateRandomAlphanumeric(15),
-        oauth: "GITHUB",
+        oauth: $Enums?.OAuthProvider?.GITHUB,
         avatar: githubInfo?.avatar_url,
       });
     }

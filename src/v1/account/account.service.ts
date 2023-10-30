@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
 import { UserService } from "../../common/db/user/user.service";
 import { PrivatePasswordDto } from "./dto/private-password.dto";
 import * as bcrypt from "bcrypt";
 import { CacheService } from "../cache/cache.service";
-import { $Enums, Prisma, User } from "@prisma/client";
+import { $Enums, Prisma, User, UserToken } from "@prisma/client";
 import { PrivateUserNameDto } from "./dto/private-username.dto";
 import { PrivateEmailDto } from "./dto/private-email.dto";
 import { ProfileDto } from "./dto/profile.dto";
@@ -16,6 +16,7 @@ import { catchError, firstValueFrom } from "rxjs";
 import { SharpFile } from "@/common/pipes/sharp.pipe";
 import { UserSecurityLogService } from "@/common/db/user-security-log/user-security-log.service";
 import * as _ from "lodash";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 @Injectable()
 export class AccountService {
@@ -25,14 +26,11 @@ export class AccountService {
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
-    private readonly userSecurityLogService: UserSecurityLogService
+    private readonly userSecurityLogService: UserSecurityLogService,
+    private readonly prismaService: PrismaService
   ) {}
 
-  public async privatePassword(
-    passwordDto: PrivatePasswordDto,
-    userInfo: User,
-    currentUTID: string
-  ) {
+  public async privatePassword(passwordDto: PrivatePasswordDto, userInfo: User, currentUTID: string) {
     if (passwordDto?.new_password !== passwordDto?.confirm_new_password) {
       throw new BadRequestException("New password and confirm new password do not match");
     } else if (!userInfo) {
@@ -49,10 +47,7 @@ export class AccountService {
       },
     });
 
-    await Promise.all([
-      this.cacheService.setUserInfo(newUserInfo),
-      this.sessionRevokeAll(userInfo?.id, currentUTID),
-    ]);
+    await Promise.all([this.cacheService.setUserInfo(newUserInfo), this.sessionRevokeAll(userInfo?.id, currentUTID)]);
 
     return newUserInfo;
   }
@@ -123,35 +118,31 @@ export class AccountService {
       throw new BadRequestException("Nothing to update");
     }
 
-    try {
-      if (
-        (await this.usersService.findUnique({
-          where: { display_name: profileDto?.display_name },
-        })) &&
-        userInfo?.display_name !== profileDto?.display_name
-      ) {
-        throw new BadRequestException("Display name is already taken");
-      }
-
-      const updateUserInfo = await this.usersService.update({
-        data: {
-          avatar: file?.staticPath ?? userInfo?.avatar,
-          display_name: profileDto?.display_name,
-          about: profileDto?.about,
-        },
-        where: {
-          id: userInfo?.id,
-        },
-      });
-
-      await this.cacheService.setUserInfo(updateUserInfo);
-      return updateUserInfo;
-    } catch (err) {
-      throw err;
+    if (
+      (await this.usersService.findUnique({
+        where: { display_name: profileDto?.display_name },
+      })) &&
+      userInfo?.display_name !== profileDto?.display_name
+    ) {
+      throw new BadRequestException("Display name is already taken");
     }
+
+    const updateUserInfo = await this.usersService.update({
+      data: {
+        avatar: file?.staticPath ?? userInfo?.avatar,
+        display_name: profileDto?.display_name,
+        about: profileDto?.about,
+      },
+      where: {
+        id: userInfo?.id,
+      },
+    });
+
+    await this.cacheService.setUserInfo(updateUserInfo);
+    return updateUserInfo;
   }
 
-  public async sessions(currentUIID: string, currentUTID: string) {
+  public async sessions(currentUIID: string, currentUserToken: UserToken) {
     const userTokens = (await this.userTokensService.findMany({
       where: {
         user_id: currentUIID,
@@ -163,47 +154,54 @@ export class AccountService {
 
     const userTokensCache = await this.cacheService.getUserTokens(currentUIID);
 
+    const userTokenArrOnlineActive: Session[] = [];
+    const userTokenArrOnlineInactive: Session[] = [];
+    const userTokenArrOfflineActive: Session[] = [];
+    const userTokenArrOfflineInactive: Session[] = [];
+
     userTokens.map((userToken) => {
       userToken.is_active = userTokensCache?.[userToken?.id] ? true : false;
+      if (userToken?.id !== currentUserToken?.id) {
+        if (userToken?.is_active && userToken?.status) {
+          userTokenArrOnlineActive.push(userToken);
+        } else if (userToken?.is_active && !userToken?.status) {
+          userTokenArrOnlineInactive.push(userToken);
+        } else if (!userToken?.is_active && userToken?.status) {
+          userTokenArrOfflineActive.push(userToken);
+        } else if (!userToken?.is_active && !userToken?.status) {
+          userTokenArrOfflineInactive.push(userToken);
+        }
+      }
     });
 
     return [
-      ...userTokens.filter((userToken) => userToken?.id === currentUTID),
-      ...userTokens.filter(
-        (userToken) =>
-          (userToken?.is_active && userToken?.id !== currentUTID) || !userToken?.is_active
-      ),
+      { ...currentUserToken, is_active: true },
+      ...userTokenArrOnlineActive,
+      ...userTokenArrOnlineInactive,
+      ...userTokenArrOfflineActive,
+      ...userTokenArrOfflineInactive,
     ] as Session[];
   }
 
   public async session(currentUIID: string, currentUTID: string, utid: string) {
     if (!utid) throw new BadRequestException("Invalid session id");
 
-    let is_active = false;
     const userTokenCache = await this.cacheService.getUserToken(currentUIID, utid);
+    userTokenCache?.expired && delete userTokenCache?.expired;
 
-    if (userTokenCache) {
-      is_active = true;
-    } else {
-      const userTokenDB = await this.userTokensService.findUnique({
-        where: {
-          id: utid,
-          user_id: currentUIID,
-        },
-      });
+    const userTokenDB = await this.userTokensService.findUnique({
+      where: {
+        id: utid,
+        user_id: currentUIID,
+      },
+    });
 
-      if (!userTokenDB) throw new BadRequestException("Invalid session id");
-
-      return {
-        ...userTokenDB,
-        is_active,
-        is_current: userTokenDB?.id === currentUTID,
-      };
-    }
+    if (!userTokenDB) throw new BadRequestException("Invalid session id");
 
     return {
       ...userTokenCache,
-      is_active,
+      ...userTokenDB,
+      is_active: userTokenCache ? true : false,
       is_current: userTokenCache?.id === currentUTID,
     };
   }
@@ -287,6 +285,46 @@ export class AccountService {
     await this.cacheService.delUserTokens(currentUIID);
 
     return { message: "All sessions revoked" };
+  }
+
+  public async sessionStatusChange(currentUIID: string, currentUTID: string, utid: string, status: boolean) {
+    if (!utid) throw new BadRequestException("Invalid session id");
+
+    if (currentUTID === utid) throw new BadRequestException("Cannot change current session status");
+
+    try {
+      const userToken = await this.prismaService.userToken.update({
+        where: {
+          id: utid,
+          user_id: currentUIID,
+        },
+        data: {
+          status,
+        },
+      });
+
+      const isActive = await this.cacheService.getUserToken(currentUIID, utid);
+
+      if (isActive) await this.cacheService.setUserToken(currentUIID, userToken);
+
+      return {
+        ...userToken,
+        is_active: isActive ? true : false,
+        is_current: false,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2025") {
+          throw new BadRequestException("Invalid session id");
+        } else
+          throw new InternalServerErrorException("Error while updating session status", {
+            cause: error,
+          });
+      } else
+        throw new InternalServerErrorException("Undefined error while updating session status", {
+          cause: error,
+        });
+    }
   }
 
   public securityLog(currentUIID: string) {

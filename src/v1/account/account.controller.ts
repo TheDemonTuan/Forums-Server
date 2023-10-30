@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseBoolPipe,
   Put,
   UploadedFile,
   UseGuards,
@@ -85,7 +86,7 @@ export class AccountController {
 
   @Get("sessions")
   async sessions(@UserInfo() userInfo: User, @UserToken() userToken: UserTokenPrisma) {
-    return await this.accountService.sessions(userInfo?.id, userToken?.id);
+    return await this.accountService.sessions(userInfo?.id, userToken);
   }
 
   @Get("session/:utid")
@@ -111,7 +112,7 @@ export class AccountController {
   async sessionRevokeSelected(
     @UserInfo() userInfo: User,
     @UserToken() userToken: UserTokenPrisma,
-    @Body() ids: string[],
+    @Body() ids: string[]
   ) {
     return await this.accountService.sessionRevokeSelected(userInfo?.id, userToken?.id, ids);
   }
@@ -123,6 +124,16 @@ export class AccountController {
     @Param("utid") utid: string
   ) {
     return await this.accountService.sessionRevoke(userInfo?.id, userToken?.id, utid);
+  }
+
+  @Put("session/status/:utid/:status")
+  async sessionStatusChange(
+    @UserInfo() userInfo: User,
+    @UserToken() userToken: UserTokenPrisma,
+    @Param("utid") utid: string,
+    @Param("status", ParseBoolPipe) status: boolean
+  ) {
+    return await this.accountService.sessionStatusChange(userInfo?.id, userToken?.id, utid, status);
   }
 
   @Get("security-log")

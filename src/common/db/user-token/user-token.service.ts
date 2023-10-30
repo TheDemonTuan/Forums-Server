@@ -49,6 +49,8 @@ export class UserTokenService {
 				...params,
 			});
 		} catch (error) {
+			console.log(error);
+			
 			throw new InternalServerErrorException("Error fetching user token", {
 				cause: error,
 			});

@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { UserTokenService } from "@/common/db/user-token/user-token.service";
 import { UserService } from "@/common/db/user/user.service";
@@ -8,71 +13,74 @@ import { Request } from "express";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-	constructor(
-		private readonly configService: ConfigService,
-		private readonly cacheService: CacheService,
-		private readonly userTokensService: UserTokenService,
-		private readonly usersService: UserService
-	) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly cacheService: CacheService,
+    private readonly userTokensService: UserTokenService,
+    private readonly usersService: UserService
+  ) {}
 
-	async canActivate(context: ExecutionContext) {
-		const request = context.switchToHttp().getRequest<Request>();
-		const unsignTokenCookie = (await request.signedCookies?.[this.configService.get<string>("USER_TOKEN_COOKIE_NAME")]) as string;
+  async canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest<Request>();
+    const unsignTokenCookie = (await request.signedCookies?.[
+      this.configService.get<string>("USER_TOKEN_COOKIE_NAME")
+    ]) as string;
 
-		if (!unsignTokenCookie) throw new UnauthorizedException();
+    if (!unsignTokenCookie) throw new UnauthorizedException();
 
-		const [userInfoID, userTokenID] = unsignTokenCookie?.split(".");
+    const [userInfoID, userTokenID] = unsignTokenCookie?.split(".");
 
-		if (!userInfoID || !userTokenID) throw new UnauthorizedException();
+    if (!userInfoID || !userTokenID) throw new UnauthorizedException();
 
-		let userToken = await this.cacheService.getUserToken(userInfoID, userTokenID);
+    let userToken = await this.cacheService.getUserToken(
+      userInfoID,
+      userTokenID
+    );
 
-		if (!userToken) {
-			userToken = (await this.userTokensService.findUnique({
-				where: {
-					id: userTokenID,
-					user_id: userInfoID,
-				},
-			})) as UserTokenCache;
+    if (!userToken) {
+      userToken = (await this.userTokensService.findUnique({
+        where: {
+          id: userTokenID,
+          user_id: userInfoID,
+        },
+      })) as UserTokenCache;
 
-			if (!userToken) {
-				throw new UnauthorizedException();
-			}
+      if (!userToken) {
+        throw new UnauthorizedException();
+      }
 
-			await this.cacheService.setUserToken(userInfoID, userToken);
-		}
+      await this.cacheService.setUserToken(userInfoID, userToken);
+    }
 
-		const currentIp = request?.ips?.[0] || request?.ip;
+    // console.log(userToken);
 
-		if (!userToken?.status || userToken?.ip !== currentIp) {
-			await this.cacheService.delUserToken(userInfoID, userTokenID);
-			throw new UnauthorizedException("This token has been disabled");
-		}
+    const currentIp = request?.ips?.[0] || request?.ip;
 
-		let userInfo = await this.cacheService.getUserInfo(userToken?.user_id);
+    if (!userToken?.status || userToken?.ip !== currentIp)
+      throw new UnauthorizedException("This session has been disabled");
 
-		if (!userInfo) {
-			userInfo = await this.usersService.findFirst({
-				where: {
-					id: userToken?.user_id,
-				},
-			});
+    let userInfo = await this.cacheService.getUserInfo(userToken?.user_id);
 
-			if (!userInfo) {
-				throw new UnauthorizedException();
-			}
+    if (!userInfo) {
+      userInfo = await this.usersService.findFirst({
+        where: {
+          id: userToken?.user_id,
+        },
+      });
 
-			await this.cacheService.setUserInfo(userInfo);
-		}
+      if (!userInfo) {
+        throw new UnauthorizedException();
+      }
 
-		if (!userInfo?.status) {
-			await this.cacheService.delUserInfo(userTokenID);
-			throw new UnauthorizedException("This account has been disabled");
-		}
+      await this.cacheService.setUserInfo(userInfo);
+    }
 
-		request["userInfo"] = { ...userInfo };
-		request["userToken"] = { ...userToken };
+    if (!userInfo?.status)
+      throw new UnauthorizedException("This account has been disabled");
 
-		return true;
-	}
+    request["userInfo"] = { ...userInfo };
+    request["userToken"] = { ...userToken };
+
+    return true;
+  }
 }
